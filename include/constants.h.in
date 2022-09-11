@@ -1,0 +1,6 @@
+#define ClapAdditiveSynth_VERSION "@ClapAdditiveSynth_VERSION@"
+#define PLUGIN_ID "@PLUGIN_ID@"
+#define PLUGIN_NAME "@PLUGIN_NAME@"
+#define PLUGIN_VENDOR "@PLUGIN_VENDOR@"
+#define PLUGIN_URL "@PLUGIN_URL@"
+#define PLUGIN_DESCRIPTION "@PLUGIN_DESCRIPTION@"

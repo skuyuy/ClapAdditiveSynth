@@ -1,0 +1,6 @@
+#define ClapAdditiveSynth_VERSION "1.0.0"
+#define PLUGIN_ID "org.ilsoft.ClapAdditiveSynth"
+#define PLUGIN_NAME "ClapAdditiveSynth"
+#define PLUGIN_VENDOR "org.ilsoft"
+#define PLUGIN_URL "https://github.com/skuyuy"
+#define PLUGIN_DESCRIPTION "Additive Synth in CLAP"
