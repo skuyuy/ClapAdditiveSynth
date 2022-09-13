@@ -14,7 +14,7 @@ namespace addsyn::internal {
 		void setFrequency(float frequency) noexcept;
 		void setAmplitude(float amplitude) noexcept;
 		void setSampleRate(float sampleRate) noexcept;
-		void process(const uint32_t indexInBuffer, uint32_t channelCount, uint32_t framesPerWindow, float** window) noexcept; // per-window processing
+		float tick() noexcept; // per-window processing
 		void prepareToPlay(float sampleRate, float frequency);
 	protected:
 		void updateAngle();

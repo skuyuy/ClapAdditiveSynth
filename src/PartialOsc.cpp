@@ -33,24 +33,22 @@ namespace addsyn::internal {
 		updateAngle();
 	}
 
-	void PartialOsc::process(const uint32_t indexInBuffer, uint32_t channelCount, uint32_t framesPerWindow, float** window) noexcept
+	float PartialOsc::tick() noexcept
 	{
 		// initialize frame
 		//window[channelIndex][sampleIndex] = 0.0f;
 
 		if (kAmp == 0.0f) // optimization
-			return;
+			return 0.0f;
 
 		auto oscValue = sinf(angle) * kAmp;
-				
-		for (uint32_t channelIndex = 0; channelIndex < channelCount; ++channelIndex) {
-			window[channelIndex][indexInBuffer] = oscValue;
-		}
 
 		angle += angleDelta;
 		if (angle >= twoPi) {
 			angle -= twoPi;
 		}
+
+		return oscValue;
 	}
 
 	void PartialOsc::prepareToPlay(float sampleRate, float frequency)

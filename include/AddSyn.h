@@ -30,11 +30,11 @@ namespace addsyn {
 		bool paramsValueToText(clap_id paramId, double value, char* displayBuffer, uint32_t size) noexcept override;
 		/* clap_plugin_audio_ports */
 		bool implementsAudioPorts() const noexcept override { return true; }
-		uint32_t audioPortsCount(bool isInput) const noexcept override { return isInput ? 0 : 1; }
-		bool audioPortsInfo(uint32_t portIndex, bool isInput, clap_audio_port_info* pInfo) const noexcept override;
+		uint32_t audioPortsCount(bool input) const noexcept override { return input ? 0 : 1; }
+		bool audioPortsInfo(uint32_t portIndex, bool input, clap_audio_port_info* pInfo) const noexcept override;
 		/* clap_plugin_note_ports */
 		bool implementsNotePorts() const noexcept override { return true; }
-		uint32_t notePortsCount(bool input) { return input ? 1 : 0; }
+		uint32_t notePortsCount(bool input) const noexcept override { return input ? 1 : 0; }
 		bool notePortsInfo(uint32_t index, bool input, clap_note_port_info* info) const noexcept override;
 	private:
 		void processEvents(const clap_input_events* events, const uint32_t eventCount, const uint32_t bufferPosition, uint32_t& eventIndex, const clap_event_header* pNextEvent);

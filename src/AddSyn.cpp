@@ -69,20 +69,20 @@ namespace addsyn {
 		const clap_event_header* inputEventPtr{nullptr};
 		uint32_t inputEventIndex{0};
 
-		for (int indexInBuffer = 0; indexInBuffer < pProcess->frames_count; ++indexInBuffer) {
+		if (inputEventCount != 0)
+			inputEventPtr = inputEvents->get(inputEvents, inputEventIndex);
+
+		for (auto indexInBuffer = 0; indexInBuffer < pProcess->frames_count; ++indexInBuffer) {
 			processEvents(inputEvents, inputEventCount, indexInBuffer, inputEventIndex, inputEventPtr);
-			
-			if (!m->playing) continue;
 			/*
 			ok for now but a better approach would be to make the partial return a value and do the
 			writing here. also better as it doesnt give the oscillator the responsibility to write
 			*/
-			m->partialOsc.process(
-				indexInBuffer,
-				pProcess->audio_inputs->channel_count,
-				pProcess->frames_count,
-				pProcess->audio_outputs[0].data32
-			);
+			auto buffer = pProcess->audio_outputs[0].data32;
+			auto out = m->partialOsc.tick();
+
+			for (auto channelIndex = 0; channelIndex < pProcess->audio_outputs->channel_count; channelIndex++)
+				buffer[channelIndex][indexInBuffer] = m->playing ? out : 0.0f;
 		}
 
 		return CLAP_PROCESS_CONTINUE;
@@ -157,9 +157,9 @@ namespace addsyn {
 		return true;
 	}
 
-	bool AddSynPlugin::audioPortsInfo(uint32_t portIndex, bool isInput, clap_audio_port_info* pInfo) const noexcept
+	bool AddSynPlugin::audioPortsInfo(uint32_t portIndex, bool input, clap_audio_port_info* pInfo) const noexcept
 	{
-		if(isInput || portIndex != 0)
+		if(input || portIndex != 0)
 			return false; // only set info if we are dealing with the first port
 
 		// we could later add more ports for sidechain inputs, recording, etc...
@@ -186,9 +186,7 @@ namespace addsyn {
 
 	void AddSynPlugin::processEvents(const clap_input_events* events, const uint32_t eventCount, const uint32_t bufferPosition, uint32_t& eventIndex, const clap_event_header* pNextEvent)
 	{
-		if (pNextEvent == nullptr) 
-			return;
-		
+
 		// checking if the scheduled event time is equal to our position in the buffer
 		while (pNextEvent && pNextEvent->time == bufferPosition) {
 			processEvent(pNextEvent);
@@ -203,6 +201,10 @@ namespace addsyn {
 
 	void AddSynPlugin::processEvent(const clap_event_header* pEvent)
 	{
+		auto tryLog = [&](clap_log_severity severity, const char* msg) {
+			if(_host.canUseHostLog()) _host.log(severity, msg);
+		};
+
 		//pEvent is already valid here
 		if(pEvent->space_id != CLAP_CORE_EVENT_SPACE_ID)
 			return;
@@ -217,9 +219,11 @@ namespace addsyn {
 				// more midi msgs to come... for now we only want to control if we are playing
 				switch (midiMessage) {
 					case 0x90: // note on
+						tryLog(CLAP_LOG_INFO, "received MIDI note on");
 						m->playing = true;
 						break;
 					case 0x80: // note off
+						tryLog(CLAP_LOG_INFO, "received MIDI note off");
 						m->playing = false;
 						break;
 					default:
@@ -228,9 +232,11 @@ namespace addsyn {
 				break;
 			}
 			case CLAP_EVENT_NOTE_ON:
+				tryLog(CLAP_LOG_INFO, "received CLAP note on");
 				m->playing = true;
 				break;
 			case CLAP_EVENT_NOTE_OFF:
+				tryLog(CLAP_LOG_INFO, "received CLAP note off");
 				m->playing = false;
 				break;
 			default:
