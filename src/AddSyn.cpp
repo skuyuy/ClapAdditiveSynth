@@ -1,6 +1,7 @@
 #include "AddSyn.h"
 
 #include <map>
+#include <string>
 
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
@@ -12,7 +13,7 @@
 namespace {
 	const char* features[] = { CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_STEREO, nullptr };
 
-	static constexpr clap_plugin_descriptor descriptor = {
+	static constexpr clap_plugin_descriptor DESCRIPTOR = {
 		CLAP_VERSION_INIT,
 		PLUGIN_ID,
 		PLUGIN_NAME,
@@ -25,12 +26,10 @@ namespace {
 		features
 	};
 
-	static const std::unordered_map<clap_id, const char*> paramIdToNameMap = {
+	static const std::unordered_map<clap_id, const char*> PARAM_ID_TO_NAME_MAP = {
 		// ex. { 1, "Gain" }
 		{ addsyn::AddSynPlugin::ParamId::Frequency, "Frequency" }
 	};
-
-	static constexpr clap_param_info_flags globalModulationFlags = CLAP_PARAM_IS_MODULATABLE | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID | CLAP_PARAM_IS_MODULATABLE_PER_KEY;
 }
 
 namespace addsyn {
@@ -38,9 +37,10 @@ namespace addsyn {
 		std::unordered_map<clap_id, double*> paramIdToValueMap;
 		//std::vector<internal::PartialOsc> sineBank;
 		internal::PartialOsc partialOsc; // test
+		bool playing{false};
 	};
 
-	AddSynPlugin::AddSynPlugin(const clap_host* pHost): clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate, clap::helpers::CheckingLevel::Maximal>(&descriptor, pHost), m{ std::make_unique<Impl>() }
+	AddSynPlugin::AddSynPlugin(const clap_host* pHost): clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate, clap::helpers::CheckingLevel::Maximal>(&DESCRIPTOR, pHost), m{ std::make_unique<Impl>() }
 	{
 	}
 
@@ -50,7 +50,7 @@ namespace addsyn {
 
 	const clap_plugin_descriptor& AddSynPlugin::getDescriptor() noexcept
 	{
-		return descriptor;
+		return DESCRIPTOR;
 	}
 
 	bool AddSynPlugin::activate(double sampleRate, uint32_t minFrames, uint32_t maxFrames) noexcept
@@ -63,14 +63,27 @@ namespace addsyn {
 	{
 		if (pProcess == nullptr) return CLAP_PROCESS_ERROR;
 		if (pProcess->audio_outputs_count <= 0) return CLAP_PROCESS_SLEEP; // skip but dont report
-		// static Sine at 440hz with a gain mult of 20%		
-
 		
-		m->partialOsc.process(
-			pProcess->audio_outputs->channel_count, 
-			pProcess->frames_count,
-			pProcess->audio_outputs[0].data32
-		);
+		auto inputEvents = pProcess->in_events;
+		auto inputEventCount = inputEvents->size(inputEvents);
+		const clap_event_header* inputEventPtr{nullptr};
+		uint32_t inputEventIndex{0};
+
+		for (int indexInBuffer = 0; indexInBuffer < pProcess->frames_count; ++indexInBuffer) {
+			processEvents(inputEvents, inputEventCount, indexInBuffer, inputEventIndex, inputEventPtr);
+			
+			if (!m->playing) continue;
+			/*
+			ok for now but a better approach would be to make the partial return a value and do the
+			writing here. also better as it doesnt give the oscillator the responsibility to write
+			*/
+			m->partialOsc.process(
+				indexInBuffer,
+				pProcess->audio_inputs->channel_count,
+				pProcess->frames_count,
+				pProcess->audio_outputs[0].data32
+			);
+		}
 
 		return CLAP_PROCESS_CONTINUE;
 	}
@@ -104,12 +117,12 @@ namespace addsyn {
 		switch (paramIndex) {
 		case 0:
 			pInfo->id = ParamId::Frequency;
-			strncpy(pInfo->name, paramIdToNameMap.at(ParamId::Frequency), CLAP_NAME_SIZE);
+			strncpy(pInfo->name, PARAM_ID_TO_NAME_MAP.at(ParamId::Frequency), CLAP_NAME_SIZE);
 			strncpy(pInfo->module, "Partials", CLAP_NAME_SIZE);
 			pInfo->min_value = 0.01f;
 			pInfo->max_value = 22000.0f;
 			pInfo->default_value = 200.0f;
-			pInfo->flags |= globalModulationFlags;
+			pInfo->flags |= CLAP_PARAM_IS_MODULATABLE | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID | CLAP_PARAM_IS_MODULATABLE_PER_KEY;
 			break;
 		default:
 			break;
@@ -157,5 +170,71 @@ namespace addsyn {
 		pInfo->channel_count = 2;
 		pInfo->port_type = CLAP_PORT_STEREO;
 		return true;
+	}
+	
+	bool AddSynPlugin::notePortsInfo(uint32_t index, bool input, clap_note_port_info* info) const noexcept
+	{
+		if(!input) return false;
+
+		info->id = 1;
+		info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_CLAP;
+		info->preferred_dialect = CLAP_NOTE_DIALECT_CLAP;
+		strncpy(info->name, "NoteInput", CLAP_NAME_SIZE);
+
+		return true;
+	}
+
+	void AddSynPlugin::processEvents(const clap_input_events* events, const uint32_t eventCount, const uint32_t bufferPosition, uint32_t& eventIndex, const clap_event_header* pNextEvent)
+	{
+		if (pNextEvent == nullptr) 
+			return;
+		
+		// checking if the scheduled event time is equal to our position in the buffer
+		while (pNextEvent && pNextEvent->time == bufferPosition) {
+			processEvent(pNextEvent);
+			eventIndex++;
+
+			if(eventIndex >= eventCount)
+				pNextEvent = nullptr;
+			else
+				pNextEvent = events->get(events, eventIndex);
+		}
+	}
+
+	void AddSynPlugin::processEvent(const clap_event_header* pEvent)
+	{
+		//pEvent is already valid here
+		if(pEvent->space_id != CLAP_CORE_EVENT_SPACE_ID)
+			return;
+
+		switch (pEvent->type) {
+			case CLAP_EVENT_MIDI: 
+			{
+				auto pMidiEvent = reinterpret_cast<const clap_event_midi*>(pEvent);
+				auto midiMessage = pMidiEvent->data[0] & 0xF0;
+				auto midiChannel = pMidiEvent->data[0] & 0x0F;
+
+				// more midi msgs to come... for now we only want to control if we are playing
+				switch (midiMessage) {
+					case 0x90: // note on
+						m->playing = true;
+						break;
+					case 0x80: // note off
+						m->playing = false;
+						break;
+					default:
+						break;
+				}
+				break;
+			}
+			case CLAP_EVENT_NOTE_ON:
+				m->playing = true;
+				break;
+			case CLAP_EVENT_NOTE_OFF:
+				m->playing = false;
+				break;
+			default:
+				break;
+		}
 	}
 }

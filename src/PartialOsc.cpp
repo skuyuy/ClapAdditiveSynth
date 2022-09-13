@@ -33,37 +33,24 @@ namespace addsyn::internal {
 		updateAngle();
 	}
 
-	void PartialOsc::process(uint32_t channelCount, uint32_t framesPerWindow, float** window) noexcept
+	void PartialOsc::process(const uint32_t indexInBuffer, uint32_t channelCount, uint32_t framesPerWindow, float** window) noexcept
 	{
-		//for (uint32_t channelIndex = 0; channelIndex < channelCount; ++channelIndex)
-		//{
-			for (uint32_t sampleIndex = 0; sampleIndex < framesPerWindow; ++sampleIndex)
-			{
-				// initialize frame
-				//window[channelIndex][sampleIndex] = 0.0f;
+		// initialize frame
+		//window[channelIndex][sampleIndex] = 0.0f;
 
-				if (kAmp == 0.0f) // optimization
-					continue;
+		if (kAmp == 0.0f) // optimization
+			return;
 
-				auto oscValue = sinf(angle) * kAmp;
+		auto oscValue = sinf(angle) * kAmp;
 				
-				for (uint32_t channelIndex = 0; channelIndex < channelCount; ++channelIndex) {
-					window[channelIndex][sampleIndex] = oscValue;
-				}
+		for (uint32_t channelIndex = 0; channelIndex < channelCount; ++channelIndex) {
+			window[channelIndex][indexInBuffer] = oscValue;
+		}
 
-				angle += angleDelta;
-				if (angle >= twoPi) {
-					angle -= twoPi;
-				}
-
-			}
-			if(kFreq >= 400.f)
-				kFreq -= 1.f;
-			else if(kFreq >= 200.f)
-				kFreq += 1.f;
-			//kFreq += 0.1f;
-			updateAngle();
-		//}
+		angle += angleDelta;
+		if (angle >= twoPi) {
+			angle -= twoPi;
+		}
 	}
 
 	void PartialOsc::prepareToPlay(float sampleRate, float frequency)
