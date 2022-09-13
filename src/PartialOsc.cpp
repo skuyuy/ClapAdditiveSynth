@@ -8,7 +8,7 @@ namespace
 }
 
 namespace addsyn::internal {
-	PartialOsc::PartialOsc()
+	PartialOsc::PartialOsc(): sampleRate{-1.0f}
 	{
 	}
 
@@ -35,9 +35,6 @@ namespace addsyn::internal {
 
 	float PartialOsc::tick() noexcept
 	{
-		// initialize frame
-		//window[channelIndex][sampleIndex] = 0.0f;
-
 		if (kAmp == 0.0f) // optimization
 			return 0.0f;
 
@@ -54,6 +51,12 @@ namespace addsyn::internal {
 	void PartialOsc::prepareToPlay(float sampleRate, float frequency)
 	{
 		angleDelta = (twoPi  * frequency / sampleRate);
+	}
+
+	void PartialOsc::reset() noexcept
+	{
+		// reset phase and other funky things
+		angle = 0.0f;
 	}
 
 	void PartialOsc::updateAngle()

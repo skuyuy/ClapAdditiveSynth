@@ -72,7 +72,7 @@ namespace addsyn {
 		if (inputEventCount != 0)
 			inputEventPtr = inputEvents->get(inputEvents, inputEventIndex);
 
-		for (auto indexInBuffer = 0; indexInBuffer < pProcess->frames_count; ++indexInBuffer) {
+		for (uint32_t indexInBuffer = 0; indexInBuffer < pProcess->frames_count; ++indexInBuffer) {
 			processEvents(inputEvents, inputEventCount, indexInBuffer, inputEventIndex, inputEventPtr);
 			/*
 			ok for now but a better approach would be to make the partial return a value and do the
@@ -81,7 +81,7 @@ namespace addsyn {
 			auto buffer = pProcess->audio_outputs[0].data32;
 			auto out = m->partialOsc.tick();
 
-			for (auto channelIndex = 0; channelIndex < pProcess->audio_outputs->channel_count; channelIndex++)
+			for (uint32_t channelIndex = 0; channelIndex < pProcess->audio_outputs->channel_count; channelIndex++)
 				buffer[channelIndex][indexInBuffer] = m->playing ? out : 0.0f;
 		}
 
@@ -104,7 +104,7 @@ namespace addsyn {
 
 	uint32_t AddSynPlugin::paramsCount() const noexcept
 	{
-		return m->paramIdToValueMap.size();
+		return static_cast<uint32_t>(m->paramIdToValueMap.size());
 	}
 	
 	bool AddSynPlugin::paramsInfo(uint32_t paramIndex, clap_param_info* pInfo) const noexcept
@@ -117,8 +117,8 @@ namespace addsyn {
 		switch (paramIndex) {
 		case 0:
 			pInfo->id = ParamId::Frequency;
-			strncpy(pInfo->name, PARAM_ID_TO_NAME_MAP.at(ParamId::Frequency), CLAP_NAME_SIZE);
-			strncpy(pInfo->module, "Partials", CLAP_NAME_SIZE);
+			strncpy_s(pInfo->name, PARAM_ID_TO_NAME_MAP.at(ParamId::Frequency), CLAP_NAME_SIZE);
+			strncpy_s(pInfo->module, "Partials", CLAP_NAME_SIZE);
 			pInfo->min_value = 0.01f;
 			pInfo->max_value = 22000.0f;
 			pInfo->default_value = 200.0f;
@@ -153,7 +153,7 @@ namespace addsyn {
 			break;
 		}
 
-		strncpy(displayBuffer, text.c_str(), CLAP_NAME_SIZE);
+		strncpy_s(displayBuffer, CLAP_NAME_SIZE, text.c_str(), CLAP_NAME_SIZE);
 		return true;
 	}
 
@@ -165,7 +165,7 @@ namespace addsyn {
 		// we could later add more ports for sidechain inputs, recording, etc...
 		pInfo->id = 0;
 		pInfo->in_place_pair = CLAP_INVALID_ID;
-		strncpy(pInfo->name, "main", sizeof(pInfo->name));
+		strncpy_s(pInfo->name, "main", sizeof(pInfo->name));
 		pInfo->flags = CLAP_AUDIO_PORT_IS_MAIN | CLAP_AUDIO_PORT_SUPPORTS_64BITS;
 		pInfo->channel_count = 2;
 		pInfo->port_type = CLAP_PORT_STEREO;
@@ -179,7 +179,7 @@ namespace addsyn {
 		info->id = 1;
 		info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_CLAP;
 		info->preferred_dialect = CLAP_NOTE_DIALECT_CLAP;
-		strncpy(info->name, "NoteInput", CLAP_NAME_SIZE);
+		strncpy_s(info->name, "NoteInput", CLAP_NAME_SIZE);
 
 		return true;
 	}

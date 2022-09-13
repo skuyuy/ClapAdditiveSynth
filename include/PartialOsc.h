@@ -16,6 +16,7 @@ namespace addsyn::internal {
 		void setSampleRate(float sampleRate) noexcept;
 		float tick() noexcept; // per-window processing
 		void prepareToPlay(float sampleRate, float frequency);
+		void reset() noexcept;
 	protected:
 		void updateAngle();
 		// common params we might need in other oscs
