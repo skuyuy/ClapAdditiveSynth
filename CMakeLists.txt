@@ -23,7 +23,6 @@ add_subdirectory(deps/clap-helpers EXCLUDE_FROM_ALL)
 file(GLOB_RECURSE SRC ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp)
 file(GLOB_RECURSE INCL ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h)
 
-
 add_library(
     ${PROJECT_NAME} MODULE
     ${SRC}
@@ -68,3 +67,7 @@ else()
 endif()
 
 # run clap-validator
+add_custom_command(
+    TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/clap-validator.exe validate "$<TARGET_FILE:${PROJECT_NAME}>"
+)
